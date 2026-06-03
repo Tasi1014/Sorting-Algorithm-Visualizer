@@ -98,6 +98,14 @@ body {
   box-shadow: 0 0 0 3px rgba(108, 95, 234, 0.2);
 }
 
+.input-group {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .controls-input {
   flex: 1;
   border: 1px solid var(--border);
@@ -120,11 +128,58 @@ body {
   font-weight: 400;
 }
 
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.icon-btn:hover {
+  background: white;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.icon-btn:active {
+  transform: scale(0.95);
+}
+
 .controls-right {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+}
+
+/* Speed control */
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.speed-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 32px;
+}
+
+.speed-slider {
+  width: 80px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 /* Select */
@@ -444,7 +499,19 @@ body {
   }
   
   .controls-right {
-    justify-content: flex-end;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .speed-control {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .speed-slider {
+    flex: 1;
+    margin-left: 16px;
   }
   
   /* Adjust canvas height for smaller screens */
@@ -520,4 +587,37 @@ button:focus-visible,
 .controls-input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ─── Dark Mode Overrides ─────────────────────────────────────────────────── */
+body.dark-mode {
+  --bg:          #0f0f13;
+  --surface:     #1a1a20;
+  --surface2:    #25252d;
+  --border:      #383842;
+  --text:        #f4f4f5;
+  --text-muted:  #a1a1aa;
+  --accent:      #8172fa;
+  --accent-dark: #978afc;
+  --shadow:      0 4px 16px rgba(0,0,0,0.5);
+  --shadow-hover: 0 8px 24px rgba(0,0,0,0.6);
+}
+
+body.dark-mode .controls-input,
+body.dark-mode .stats-badge strong {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+body.dark-mode .controls-select:hover,
+body.dark-mode .icon-btn:hover {
+  background: var(--surface2);
+}
+
+body.dark-mode .header-settings {
+  color: var(--text-muted);
+}
+body.dark-mode .header-settings:hover {
+  background: var(--surface2);
+  color: var(--text);
 }

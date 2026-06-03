@@ -1,5 +1,6 @@
 // src/Components/Canvas.js
 // Renders the sorting bars on a <canvas> with smooth swap animation.
+import { playNote } from '../utils/audio.js';
 
 const COLORS = {
   unsorted:  "#A89FD8", // muted purple
@@ -12,7 +13,7 @@ const COLORS = {
 };
 
 const BAR_RADIUS    = 6;   // px corner radius
-const ANIM_DURATION = 220; // ms per swap animation
+const BASE_DURATION = 750; // base ms per swap animation (at 1x speed)
 const LABEL_FONT    = "bold 14px 'Segoe UI', sans-serif";
 
 export class Canvas {
@@ -41,13 +42,22 @@ export class Canvas {
     this.values    = [...array];   // live copy mutated during animation
     this.steps     = steps;
     this.total     = steps.length;
+    this.maxVal    = Math.max(...array, 1); // used for pitch calculations
     this.colorMap  = new Array(array.length).fill("unsorted");
     this._resize();
     this._draw();
   }
 
   play()  { if (!this.playing) this._tick(); }
-  pause() { this.playing = false; cancelAnimationFrame(this._raf); }
+  pause() { 
+    this.playing = false; 
+    cancelAnimationFrame(this._raf); 
+    clearTimeout(this._timer);
+  }
+
+  setSpeed(multiplier) {
+    this.speedMultiplier = multiplier;
+  }
 
   stepForward() {
     if (this.currentStep >= this.total) return;
@@ -99,8 +109,22 @@ export class Canvas {
     this.swaps       = 0;
     this.comparisons = 0;
     this._raf        = null;
+    this._timer      = null;
+    this.speedMultiplier = this.speedMultiplier || 1.5; // default speed
     // Swap animation state
     this._anim       = null;
+  }
+
+  _getDuration() {
+    if (this.speedMultiplier > 5) return 0;
+    return BASE_DURATION / this.speedMultiplier;
+  }
+
+  _getStepsPerFrame() {
+    if (this.speedMultiplier <= 5) return 1;
+    // Map speed 5 -> 20 to 1 -> 150 steps per frame (exponentially for dramatic speed increase)
+    const t = (this.speedMultiplier - 5) / 15; // 0 to 1
+    return Math.floor(1 + t * t * 149);
   }
 
   _bindResize() {
@@ -120,6 +144,29 @@ export class Canvas {
     this._ch = height;
   }
 
+  _getLayout() {
+    const { _cw: W, _ch: H, values } = this;
+    const n = values.length;
+    const padding = 40;
+    const maxUsableW = W - padding * 2;
+    
+    let gap = 8;
+    if (n > 20) gap = 4;
+    if (n > 50) gap = 2;
+    if (n > 80) gap = 1;
+
+    let barW = (maxUsableW - gap * (n - 1)) / n;
+    if (barW < 1) barW = 1;
+
+    const maxVal  = Math.max(...values, 1);
+    const maxBarH = H - padding * 2 - 30; // leave room for labels
+    const startX  = (W - (barW * n + gap * (n - 1))) / 2;
+
+    const showText = barW >= 20;
+
+    return { gap, barW, maxVal, maxBarH, startX, showText, padding };
+  }
+
   // ─── Rendering ──────────────────────────────────────────────────────────────
 
   _draw(animOffset = null) {
@@ -129,13 +176,9 @@ export class Canvas {
 
     ctx.clearRect(0, 0, W, H);
 
-    const padding    = 40;
-    const gap        = 8;
-    const totalGap   = gap * (n - 1);
-    const barW       = Math.max(28, Math.min(72, (W - padding * 2 - totalGap) / n));
-    const maxVal     = Math.max(...values);
-    const maxBarH    = H - padding * 2 - 30; // leave room for labels
-    const startX     = (W - (barW * n + gap * (n - 1))) / 2;
+    const layout = this._getLayout();
+    if (!layout) return;
+    const { gap, barW, maxVal, maxBarH, startX, showText, padding } = layout;
 
     for (let i = 0; i < n; i++) {
       const barH = (values[i] / maxVal) * maxBarH;
@@ -148,14 +191,17 @@ export class Canvas {
       }
 
       const color = COLORS[colorMap[i]] || COLORS.unsorted;
-      this._roundRect(ctx, x, y, barW, barH, BAR_RADIUS, color);
+      const r = Math.min(BAR_RADIUS, barW / 2);
+      this._roundRect(ctx, x, y, barW, barH, r, color);
 
       // Value label inside bar
-      ctx.fillStyle = COLORS.text;
-      ctx.font      = LABEL_FONT;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(values[i], x + barW / 2, y + Math.min(barH / 2, 18));
+      if (showText) {
+        ctx.fillStyle = COLORS.text;
+        ctx.font      = LABEL_FONT;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(values[i], x + barW / 2, y + Math.min(barH / 2, 18));
+      }
     }
   }
 
@@ -175,16 +221,20 @@ export class Canvas {
 
   // ─── Step Application ───────────────────────────────────────────────────────
 
-  _applyStep(step) {
+  _applyStep(step, playSound = true) {
     const cm = this.colorMap;
+
+    // Clear previous compare/swap highlights
+    cm.forEach((c, idx) => { 
+      if (c === "comparing" || c === "swapping") cm[idx] = "unsorted"; 
+    });
 
     if (step.type === "compare") {
       const [i, j] = step.indices;
-      // Clear previous compare highlight (but not sorted)
-      cm.forEach((c, idx) => { if (c === "comparing") cm[idx] = "unsorted"; });
       cm[i] = "comparing";
       cm[j] = "comparing";
       this.comparisons++;
+      if (playSound) playNote(this.values[i], this.maxVal);
     }
 
     if (step.type === "swap") {
@@ -193,11 +243,24 @@ export class Canvas {
       cm[i] = "swapping";
       cm[j] = "swapping";
       this.swaps++;
+      if (playSound) playNote(this.values[i], this.maxVal);
+    }
+
+    if (step.type === "overwrite") {
+      const { index, value } = step;
+      this.values[index] = value;
+      cm[index] = "swapping";
+      this.swaps++; // Track it as a write/swap operation
+      if (playSound) playNote(value, this.maxVal);
     }
 
     if (step.type === "markSorted") {
       const { index } = step;
-      cm[index] = "sorted";
+      if (Array.isArray(index)) {
+        index.forEach(idx => cm[idx] = "sorted");
+      } else {
+        cm[index] = "sorted";
+      }
     }
   }
 
@@ -224,41 +287,66 @@ export class Canvas {
     }
 
     this.playing = true;
-    const step = this.steps[this.currentStep];
+    const stepsToProcess = this._getStepsPerFrame();
 
-    if (step.type === "swap") {
-      this._animateSwap(step.indices[0], step.indices[1], () => {
+    // 1x to 5x speed: Standard smooth animated mode
+    if (stepsToProcess === 1) {
+      const step = this.steps[this.currentStep];
+      if (step.type === "swap") {
+        playNote(this.values[step.indices[0]], this.maxVal);
+        this._animateSwap(step.indices[0], step.indices[1], () => {
+          this._applyStep(step, false); // Audio already played
+          this.currentStep++;
+          this._draw();
+          this._notify();
+          if (this.playing) {
+            this._raf = requestAnimationFrame(() => this._tick());
+          }
+        });
+      } else {
         this._applyStep(step);
         this.currentStep++;
         this._draw();
         this._notify();
-        this._raf = requestAnimationFrame(() => this._tick());
-      });
-    } else {
-      this._applyStep(step);
+        this._timer = setTimeout(() => {
+          if (this.playing) {
+            this._raf = requestAnimationFrame(() => this._tick());
+          }
+        }, this._getDuration());
+      }
+      return;
+    }
+
+    // 5x to 20x speed: High-performance batching mode (no artificial delays/animations)
+    let processed = 0;
+    while (processed < stepsToProcess && this.currentStep < this.total && this.playing) {
+      const isLastInBatch = (processed === stepsToProcess - 1) || (this.currentStep === this.total - 1);
+      this._applyStep(this.steps[this.currentStep], isLastInBatch);
       this.currentStep++;
-      this._draw();
-      this._notify();
-      // Small delay between non-swap steps so user can see comparisons
-      this._raf = setTimeout(() => {
-        requestAnimationFrame(() => this._tick());
-      }, 80);
+      processed++;
+    }
+
+    this._draw();
+    this._notify();
+
+    if (this.playing && this.currentStep < this.total) {
+      this._raf = requestAnimationFrame(() => this._tick());
+    } else if (this.currentStep >= this.total) {
+      this.playing = false;
     }
   }
 
   /** Smooth horizontal swap animation */
   _animateSwap(i, j, onDone) {
-    const { _cw: W, _ch: H, values } = this;
-    const n        = values.length;
-    const padding  = 40;
-    const gap      = 8;
-    const barW     = Math.max(28, Math.min(72, (W - padding * 2 - gap * (n - 1)) / n));
+    const layout = this._getLayout();
+    if (!layout) { onDone(); return; }
+    const { gap, barW } = layout;
     const totalDx  = (barW + gap) * Math.abs(j - i);
 
     const start = performance.now();
 
     const frame = (now) => {
-      const t        = Math.min((now - start) / ANIM_DURATION, 1);
+      const t        = Math.min((now - start) / this._getDuration(), 1);
       const eased    = easeInOutCubic(t);
       const dx       = eased * totalDx;
 

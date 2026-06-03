@@ -27,6 +27,7 @@ const ALGOS = {
 
 let canvas = null;   // Canvas instance
 let isPlaying = false;
+let currentSpeed = 1.5; // Default speed
 
 // ─── Mount shell ─────────────────────────────────────────────────────────────
 
@@ -39,6 +40,10 @@ app.appendChild(Header());
 const controls = Controls({
   onVisualize(arr, algoKey) {
     loadVisualization(arr, algoKey);
+  },
+  onSpeedChange(speed) {
+    currentSpeed = speed;
+    if (canvas) canvas.setSpeed(speed);
   },
 });
 app.appendChild(controls);
@@ -122,6 +127,7 @@ function loadVisualization(arr, algoKey) {
     }
   });
 
+  canvas.setSpeed(currentSpeed);
   canvas.load(arr, steps);
   stats.update({ step: 0, total: steps.length, swaps: 0, comparisons: 0 });
 }
@@ -130,7 +136,7 @@ function loadVisualization(arr, algoKey) {
 // Pre-fill the input with example numbers so users see something immediately
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("numbersInput");
-  if (input) input.value = "45, 12, 89, 3, 55, 21, 2, 33";
+  if (input) input.value = "45, 12, 89, 31, 55, 21, 19, 33";
 
   // Update info panels to default algo
   const meta = ALGO_META["bubble"];

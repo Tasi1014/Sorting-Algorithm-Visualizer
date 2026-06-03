@@ -73,10 +73,13 @@ export function insertionSort(arr) {
         value: key
       });
   
-      // This position is now correctly placed — paint it green
+      // All positions up to i are now in the sorted portion
+      const sortedIndices = [];
+      for (let k = 0; k <= i; k++) sortedIndices.push(k);
+      
       steps.push({
         type: "markSorted",
-        index: i
+        index: sortedIndices
       });
     }
   
