@@ -117,18 +117,43 @@ export function Controls({ onVisualize, onSpeedChange }) {
   });
 
   btn.addEventListener("click", () => {
-    const raw = el.querySelector("#numbersInput").value.trim();
+    const inputEl = el.querySelector("#numbersInput");
+    const raw = inputEl.value.trim();
     const algo = el.querySelector("#algoSelect").value;
 
-    if (!raw) return;
+    if (!raw) {
+      alert("Please enter some numbers or click the Randomize button to generate an array!");
+      inputEl.focus();
+      return;
+    }
 
     const arr = raw
       .split(",")
-      .map((s) => Number(s.trim()))
-      .filter((n) => !isNaN(n) && n !== "");
+      .map((s) => s.trim())
+      .filter((s) => s !== "")
+      .map((s) => Math.round(Number(s))) // Round decimals to prevent long labels
+      .filter((n) => !isNaN(n));
 
     if (arr.length < 2) {
-      alert("Please enter at least 2 valid numbers.");
+      alert("Please enter at least 2 valid numbers to sort.");
+      inputEl.focus();
+      return;
+    }
+
+    if (arr.some((n) => n < 1)) {
+      alert("Please enter only positive numbers greater than 0. Negative numbers cannot be drawn as bars!");
+      inputEl.focus();
+      return;
+    }
+
+    if (arr.some((n) => n > 999)) {
+      alert("Please keep your numbers under 1000 so the labels fit inside the bars!");
+      inputEl.focus();
+      return;
+    }
+
+    if (arr.length > 100) {
+      alert("Please limit your input to 100 numbers for optimal visualization.");
       return;
     }
 

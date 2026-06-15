@@ -1,6 +1,3 @@
-// src/main.js
-// Entry point — mounts all components and wires interactivity
-
 import { Header }     from "./Components/Header.js";
 import { Controls }   from "./Components/Controls.js";
 import { Canvas }     from "./Components/Canvas.js";
@@ -15,7 +12,6 @@ import { selectionSort } from "./algorithms/selection.js";
 import { ALGO_META }     from "./utils/algoMeta.js";
 import "./style.css"
 
-// ─── Algorithm registry ─────────────────────────────────────────────────────
 
 const ALGOS = {
   bubble:    bubbleSort,
@@ -23,20 +19,17 @@ const ALGOS = {
   selection: selectionSort,
 };
 
-// ─── App state ───────────────────────────────────────────────────────────────
 
 let canvas = null;   // Canvas instance
 let isPlaying = false;
 let currentSpeed = 1.5; // Default speed
 
-// ─── Mount shell ─────────────────────────────────────────────────────────────
 
 const app = document.getElementById("app");
 
-// 1. Header
 app.appendChild(Header());
 
-// 2. Controls bar
+//Controls bar
 const controls = Controls({
   onVisualize(arr, algoKey) {
     loadVisualization(arr, algoKey);
@@ -132,13 +125,10 @@ function loadVisualization(arr, algoKey) {
   stats.update({ step: 0, total: steps.length, swaps: 0, comparisons: 0 });
 }
 
-// ─── Seed a demo on load ─────────────────────────────────────────────────────
-// Pre-fill the input with example numbers so users see something immediately
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("numbersInput");
   if (input) input.value = "45, 12, 89, 31, 55, 21, 19, 33";
 
-  // Update info panels to default algo
   const meta = ALGO_META["bubble"];
   complexity.update(meta);
   logic.update(meta);

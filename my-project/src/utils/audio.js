@@ -35,7 +35,6 @@ export function playNote(val, maxVal) {
   osc.type = 'triangle';
   osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-  // Envelope to prevent clipping/clicking
   gainNode.gain.setValueAtTime(0.01, audioCtx.currentTime);
   gainNode.gain.exponentialRampToValueAtTime(0.1, audioCtx.currentTime + 0.02);
   gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
